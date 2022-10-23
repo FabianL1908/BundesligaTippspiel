@@ -141,40 +141,63 @@ def get_diff_and_goal(guess, result):
     guess1, guess2 = guess.split(":")
     res1, res2 = result.split(":")
     guess1 = int(guess1); guess2 = int(guess2); res1 = int(res1); res2 = int(res2)
-    delta_diff = np.abs(guess1-guess2) + np.abs(res1-res2)
+    delta_diff = np.abs(np.abs(guess1-guess2) - np.abs(res1-res2))
     delta_goal = np.abs(guess1 + guess2 - res1 - res2)
     return (delta_diff, delta_goal)
 
-def calc_points(spieltag, season):
+def calc_points_spieltag(spieltag, season):
     df_list = get_matches_df_list(spieltag, season)
+    out_df_list = []
     for df in df_list:
-        result = df["Result"].iloc[0]
-        tendencies = df["Guess"].apply(tendency)
-        winners = df[tendencies==tendency(result)]
-        diffs = winners["Guess"].apply(partial(get_diff_and_goal, result=result)).sort_values()
-        numbers = np.array(diffs.value_counts().sort_index().tolist())
-        quotients = 1/np.cumsum(numbers)
-        y = np.sum(numbers)*quotients*numbers
-        points = 9/np.sum(y)*y/numbers
-        final_points = np.round(1 + points, 2)
-        point_list = []
-        for n, f in zip(numbers, final_points):
-            point_list += n*[f]
-        diff_calc_points = pd.DataFrame(diffs)
-        diff_calc_points["calc_points"] = point_list
-        df = pd.concat([df, diff_calc_points["calc_points"]], axis=1)
-        import ipdb; ipdb.set_trace()
-        df["calc_points"] = df["calc_points"].fillna(0.00)
+        df = calc_points_df(df)
+        out_df_list.append(df)
+
+    return out_df_list
+
+def calc_points_df(df, check=True):
+    result = df["Result"].iloc[0]
+    tendencies = df["Guess"].apply(tendency)
+    winners = df[tendencies==tendency(result)]
+    diffs = winners["Guess"].apply(partial(get_diff_and_goal, result=result)).sort_values()
+    numbers = np.array(diffs.value_counts().sort_index().tolist())
+    quotients = 1/np.cumsum(numbers)
+    y = np.sum(numbers)*quotients*numbers
+    points = 9/np.sum(y)*y/numbers
+    final_points = np.round(1 + points, 2)
+    point_list = []
+    for n, f in zip(numbers, final_points):
+        point_list += n*[f]
+    diff_calc_points = pd.DataFrame(diffs)
+    diff_calc_points["calc_points"] = point_list
+    df = pd.concat([df, diff_calc_points["calc_points"]], axis=1)
+    df["calc_points"] = df["calc_points"].fillna(0.00)
+    if check:
+        assert np.abs(df["calc_points"].apply(lambda x: x-1 if x > 0.0 else 0.0).sum() - 9.0) < 0.1
         assert df["Points"].equals(df["calc_points"])
 
-    return 
-        
+    return df
+
+def add_guess(df, spieltag, season, name, team1, team2, guess):
+    my_dict = {"Spieltag": spieltag,
+               "Season": season,
+               "Name": name,
+               "Team1": team1,
+               "Team2": team2,
+               "Guess": guess,
+               "Result": df.Result.tolist()[0],
+               "Points": np.NaN}
+    df = df.append(my_dict, ignore_index=True)
+    return df
+
 
 if __name__ == "__main__":
 #    import ipdb; ipdb.set_trace()
 #    store_data(1,250)
     df = load_stored_data()
-    calc_points(9, "2022/2023")
+    df_list = calc_points_spieltag(9, "2022/2023")
+    df = get_matches_df_list(9, "2022/2023")[0]
+    df = add_guess(df, 9, "2022/2023", "New Guess", "TSG", "BRE", "1:2")
+    df_new = calc_points_df(df, check=False)
     import ipdb; ipdb.set_trace()
     
 #import ipdb; ipdb.set_trace()    
