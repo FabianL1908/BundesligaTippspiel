@@ -4,11 +4,14 @@ import numpy as np
 import re
 import os
 from requests.auth import HTTPBasicAuth
+from functools import partial
 from tqdm import tqdm
 from time import sleep
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
+
+pd.set_option('display.max_rows', 100)
 
 user="FabianL"
 password="190893"
@@ -97,10 +100,81 @@ def load_stored_data():
     df = pd.read_csv("Bundesliga_data.csv", index_col=[0], decimal=',', encoding='utf-8')
     return df
 
+def get_spieltag_df(spieltag, season):
+    df = load_stored_data()
+    df = df.loc[(df["Season"] == season) &
+                (df["Spieltag"] == spieltag)]
+    return df
+
+def get_matches_of_spieltag(spieltag, season):
+#    df = load_stored_data()
+    spieltag_df = get_spieltag_df(spieltag, season).reset_index()
+    matches = []
+    for i in range(0,9):
+        team1, team2 = spieltag_df.iloc[i][["Team1", "Team2"]]
+        matches.append((team1, team2))
+    return matches
+
+def get_matches_df_list(spieltag, season):
+    df = get_spieltag_df(spieltag, season)
+    matches = get_matches_of_spieltag(spieltag, season)
+    df_list = []
+    for match in matches:
+        df_m = df.loc[df.Team1 == match[0]]
+        df_list.append(df_m)
+    return df_list
+
+def tendency(result):
+    try:
+        goal1, goal2 = result.split(":")
+        goal1 = int(goal1); goal2 = int(goal2)
+        if goal1 > goal2:
+            return "win1"
+        elif goal1 == goal2:
+            return "draw"
+        else:
+            return "win2"
+    except:
+        return
+
+def get_diff_and_goal(guess, result):
+    guess1, guess2 = guess.split(":")
+    res1, res2 = result.split(":")
+    guess1 = int(guess1); guess2 = int(guess2); res1 = int(res1); res2 = int(res2)
+    delta_diff = np.abs(guess1-guess2) + np.abs(res1-res2)
+    delta_goal = np.abs(guess1 + guess2 - res1 - res2)
+    return (delta_diff, delta_goal)
+
+def calc_points(spieltag, season):
+    df_list = get_matches_df_list(spieltag, season)
+    for df in df_list:
+        result = df["Result"].iloc[0]
+        tendencies = df["Guess"].apply(tendency)
+        winners = df[tendencies==tendency(result)]
+        diffs = winners["Guess"].apply(partial(get_diff_and_goal, result=result)).sort_values()
+        numbers = np.array(diffs.value_counts().sort_index().tolist())
+        quotients = 1/np.cumsum(numbers)
+        y = np.sum(numbers)*quotients*numbers
+        points = 9/np.sum(y)*y/numbers
+        final_points = np.round(1 + points, 2)
+        point_list = []
+        for n, f in zip(numbers, final_points):
+            point_list += n*[f]
+        diff_calc_points = pd.DataFrame(diffs)
+        diff_calc_points["calc_points"] = point_list
+        df = pd.concat([df, diff_calc_points["calc_points"]], axis=1)
+        import ipdb; ipdb.set_trace()
+        df["calc_points"] = df["calc_points"].fillna(0.00)
+        assert df["Points"].equals(df["calc_points"])
+
+    return 
+        
+
 if __name__ == "__main__":
 #    import ipdb; ipdb.set_trace()
 #    store_data(1,250)
     df = load_stored_data()
+    calc_points(9, "2022/2023")
     import ipdb; ipdb.set_trace()
     
 #import ipdb; ipdb.set_trace()    
