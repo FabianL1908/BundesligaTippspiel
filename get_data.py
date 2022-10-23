@@ -3,18 +3,34 @@ import pandas as pd
 import numpy as np
 import re
 import os
+from requests.auth import HTTPBasicAuth
+from tqdm import tqdm
+from time import sleep
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
+user="FabianL"
+password="190893"
+login_dict = {'user': user,
+              'pwd': password}
 
-def get_hmtl(N):
-    url = f'https://tippspiel.altenbernd.eu/matchday.php?matchday_id={N}&season_id='
-    html = requests.get(url).content
-    return html
+
+def get_html(N_start, N_end):
+    html_dict = {}
+    with requests.session() as s:
+        login_url = "https://tippspiel.altenbernd.eu/login.php"
+        res = s.post(login_url, data=login_dict)
+        print("Downloading data")
+        for N in tqdm(range(N_start, N_end)):
+            url = f'https://tippspiel.altenbernd.eu/matchday.php?matchday_id={N}&season_id='
+            html = s.get(url).content
+            html_dict[str(N)] = html
+            sleep(0.5)
+    return html_dict
 
 def get_df(html):
-    df_list = pd.read_html(html)
+    df_list = pd.read_html(html, encoding='utf-8')
     df = df_list[-1]
     return df
     
@@ -35,12 +51,13 @@ def get_season(html):
 
 def download_data(N_start, N_end):
     my_df = pd.DataFrame(columns=["Spieltag", "Season", "Name", "Team1", "Team2", "Guess", "Result", "Points"])
+    html_dict = get_html(N_start, N_end)
     for N in range(N_start, N_end):
-        html = get_hmtl(N)
+        html = html_dict[str(N)]
         spieltag = get_spieltag(html, N)
         season = get_season(html)
         if spieltag and season:
-            print(f"Downloading data for N={N}, Spieltag={spieltag}, Season={season}")
+            print(f"Processing data for N={N}, Spieltag={spieltag}, Season={season}")
             df = get_df(html)
             # drop last row, somehow this row is repeated
             df.drop(df.tail(1).index,inplace=True)
@@ -69,20 +86,20 @@ def download_data(N_start, N_end):
                 my_df = my_df.append(my_dict, ignore_index=True)
     return my_df
 
-def store_data():
+def store_data(N_start, N_end):
     if not os.path.exists("Bundesliga_data.csv"):
-        my_df = download_data(1, 250)
+        my_df = download_data(N_start, N_end)
         my_df.to_csv("Bundesliga_data.csv")
     else:
         print("File Bundesliga_data.csv already exists")
 
 def load_stored_data():
-    df = pd.read_csv("Bundesliga_data.csv", index_col=[0])
+    df = pd.read_csv("Bundesliga_data.csv", index_col=[0], decimal=',', encoding='utf-8')
     return df
 
 if __name__ == "__main__":
 #    import ipdb; ipdb.set_trace()
-    store_data()
+#    store_data(1,250)
     df = load_stored_data()
     import ipdb; ipdb.set_trace()
     
