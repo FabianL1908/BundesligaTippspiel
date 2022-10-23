@@ -177,7 +177,12 @@ def calc_points_df(df, check=True):
 
     return df
 
-def add_guess(df, spieltag, season, name, team1, team2, guess):
+def add_guess_spieltag(spieltag, season, name, team1, team2, guess):
+    df = load_stored_data()
+    df = df.loc[(df.Spieltag == spieltag) &
+                (df.Season == season) &
+                (df.Team1 == team1) &
+                (df.Team2 == team2)]
     my_dict = {"Spieltag": spieltag,
                "Season": season,
                "Name": name,
@@ -189,6 +194,13 @@ def add_guess(df, spieltag, season, name, team1, team2, guess):
     df = df.append(my_dict, ignore_index=True)
     return df
 
+def add_guess_df(df, guess):
+    new_entry = df.iloc[0].to_dict()
+    new_entry["Name"] = "New guess"
+    new_entry["Guess"] = guess
+    new_entry["Points"] = np.NaN
+    df = df.append(pd.DataFrame(new_entry, index=[0]), ignore_index=True)
+    return df
 
 if __name__ == "__main__":
 #    import ipdb; ipdb.set_trace()
@@ -196,7 +208,9 @@ if __name__ == "__main__":
     df = load_stored_data()
     df_list = calc_points_spieltag(9, "2022/2023")
     df = get_matches_df_list(9, "2022/2023")[0]
-    df = add_guess(df, 9, "2022/2023", "New Guess", "TSG", "BRE", "1:2")
+    import ipdb; ipdb.set_trace()
+    df = add_guess_spieltag(9, "2022/2023", "New Guess", "TSG", "BRE", "1:2")
+#    df = add_guess_df(df, "1:2")
     df_new = calc_points_df(df, check=False)
     import ipdb; ipdb.set_trace()
     
