@@ -230,19 +230,28 @@ def get_prev_n_results(spieltag, season, team, n):
     results = []
 #    import ipdb; ipdb.set_trace()
     for pss in prev_spieltag_season:
-        pss_df = df.loc[(df.Spieltag == pss[0]) & (df.Season == pss[1]) &
-                        ((df.Team1 == team) | (df.Team2 == team))]
-        #Here I throw away if home or away win
-        result = pss_df["Result"].tolist()[0]
-        if pss_df.Team2.tolist()[0] == team:
-            result = result[2] + ":" + result[0]
-        results.append(result)
+        try:
+            pss_df = df.loc[(df.Spieltag == pss[0]) & (df.Season == pss[1]) &
+                            ((df.Team1 == team) | (df.Team2 == team))]
+            #Here I throw away if home or away win
+            result = pss_df["Result"].tolist()[0]
+            if pss_df.Team2.tolist()[0] == team:
+                result = result[2] + ":" + result[0]
+            results.append(result)
+        except:
+            # if team has not played in Buli in the last n matches just set results to 0:0
+            results.append["0:0"]
     return results
+
+def result_str_to_ints(result):
+    return [int(i) for i in result.split(":")]
 
 def create_state_generator(n):
     df = load_stored_data()
     spieltags, seasons = get_spieltag_season_list()
-    for row in df.to_dict(orient='index').values():
+#    import ipdb; ipdb.set_trace()
+#    for row in df.to_dict(orient='index').values():
+    for index, row in df.loc[df.Name == "Stefan Turek"].iterrows():
         spieltag = row["Spieltag"]
         season = row["Season"]
         team1 = row["Team1"]
@@ -251,9 +260,12 @@ def create_state_generator(n):
             match_dict = {}
             match_dict[team1] = get_prev_n_results(spieltag, season, team1, n)
             match_dict[team2] = get_prev_n_results(spieltag, season, team2, n)
+            match_dict["Spieltag"] = spieltag
+            match_dict["Season"] = season
+            match_dict["df"] = df.loc[(df.Spieltag == spieltag) & (df.Season == season)&
+                                      (df.Team1 == team1)]
             yield match_dict
             
-        
 
 if __name__ == "__main__":
 #    import ipdb; ipdb.set_trace()
