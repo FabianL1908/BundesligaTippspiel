@@ -1,6 +1,7 @@
 import requests
 import pandas as pd
 import numpy as np
+import functools
 import re
 import os
 from requests.auth import HTTPBasicAuth
@@ -11,7 +12,11 @@ from time import sleep
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-pd.set_option('display.max_rows', 100)
+def display_rows(N):
+    pd.set_option('display.max_rows', N)
+    return
+
+display_rows(10)
 
 user="FabianL"
 password="190893"
@@ -202,16 +207,68 @@ def add_guess_df(df, guess):
     df = df.append(pd.DataFrame(new_entry, index=[0]), ignore_index=True)
     return df
 
+@functools.lru_cache(maxsize=1)
+def get_spieltag_season_list():
+    df = load_stored_data()
+    spieltage = df["Spieltag"].unique()
+    seasons = df["Season"].unique()
+    return spieltage, seasons
+
+def get_prev_n_spieltag_season(spieltag, season, n):
+    spieltags, seasons = get_spieltag_season_list()
+    if spieltag > n:
+        return [(i, season) for i in range(spieltag-1, spieltag-n-1, -1)]
+    else:
+        prev_season = str(seasons[np.where(seasons == season)[0]-1][0])
+        pt1 = [(i, season) for i in range(spieltag-1, 0, -1)]
+        pt2 = [(i, prev_season) for i in range(34, 34-(n-spieltag+1), -1)]
+        return pt1 + pt2
+
+def get_prev_n_results(spieltag, season, team, n):
+    df = load_stored_data()
+    prev_spieltag_season = get_prev_n_spieltag_season(spieltag, season, n)
+    results = []
+#    import ipdb; ipdb.set_trace()
+    for pss in prev_spieltag_season:
+        pss_df = df.loc[(df.Spieltag == pss[0]) & (df.Season == pss[1]) &
+                        ((df.Team1 == team) | (df.Team2 == team))]
+        #Here I throw away if home or away win
+        result = pss_df["Result"].tolist()[0]
+        if pss_df.Team2.tolist()[0] == team:
+            result = result[2] + ":" + result[0]
+        results.append(result)
+    return results
+
+def create_state_generator(n):
+    df = load_stored_data()
+    spieltags, seasons = get_spieltag_season_list()
+    for row in df.to_dict(orient='index').values():
+        spieltag = row["Spieltag"]
+        season = row["Season"]
+        team1 = row["Team1"]
+        team2 = row["Team2"]
+        if spieltag > n and season >= seasons[0]:
+            match_dict = {}
+            match_dict[team1] = get_prev_n_results(spieltag, season, team1, n)
+            match_dict[team2] = get_prev_n_results(spieltag, season, team2, n)
+            yield match_dict
+            
+        
+
 if __name__ == "__main__":
 #    import ipdb; ipdb.set_trace()
 #    store_data(1,250)
     df = load_stored_data()
-    df_list = calc_points_spieltag(9, "2022/2023")
-    df = get_matches_df_list(9, "2022/2023")[0]
+#    df_list = calc_points_spieltag(9, "2022/2023")
+#    df = get_matches_df_list(9, "2022/2023")[0]
     import ipdb; ipdb.set_trace()
-    df = add_guess_spieltag(9, "2022/2023", "New Guess", "TSG", "BRE", "1:2")
+#    df = add_guess_spieltag(9, "2022/2023", "New Guess", "TSG", "BRE", "1:2")
 #    df = add_guess_df(df, "1:2")
     df_new = calc_points_df(df, check=False)
+#    get_prev_n_spieltag_season(7, "2021/2022", 7)
+    results = get_prev_n_results(7, "2021/2022", "FCB", 7)
+    my_gen = create_state_generator(5)
+    print(next(my_gen))
     import ipdb; ipdb.set_trace()
     
 #import ipdb; ipdb.set_trace()    
