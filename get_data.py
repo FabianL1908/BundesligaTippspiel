@@ -164,14 +164,19 @@ def calc_points_df(df, check=True):
     tendencies = df["Guess"].apply(tendency)
     winners = df[tendencies==tendency(result)]
     diffs = winners["Guess"].apply(partial(get_diff_and_goal, result=result)).sort_values()
-    numbers = np.array(diffs.value_counts().sort_index().tolist())
-    quotients = 1/np.cumsum(numbers)
-    y = np.sum(numbers)*quotients*numbers
-    points = 9/np.sum(y)*y/numbers
-    final_points = np.round(1 + points, 2)
-    point_list = []
-    for n, f in zip(numbers, final_points):
-        point_list += n*[f]
+    if len(diffs) != 0:
+        numbers = np.array(diffs.value_counts().sort_index().tolist())
+        quotients = 1/np.cumsum(numbers)
+        y = np.sum(numbers)*quotients*numbers
+        points = 9/np.sum(y)*y/numbers
+        if np.abs(np.sum(y) < 0.1):
+            import ipdb; ipdb.set_trace()
+        final_points = np.round(1 + points, 2)
+        point_list = []
+        for n, f in zip(numbers, final_points):
+            point_list += n*[f]
+    else:
+        point_list = []    
     diff_calc_points = pd.DataFrame(diffs)
     diff_calc_points["calc_points"] = point_list
     df = pd.concat([df, diff_calc_points["calc_points"]], axis=1)
@@ -256,7 +261,7 @@ def create_state_generator(n):
         season = row["Season"]
         team1 = row["Team1"]
         team2 = row["Team2"]
-        if spieltag > n and season >= seasons[0]:
+        if spieltag > n and season >= seasons[0] and season < "2022/2023":
             match_dict = {}
             match_dict[team1] = get_prev_n_results(spieltag, season, team1, n)
             match_dict[team2] = get_prev_n_results(spieltag, season, team2, n)
