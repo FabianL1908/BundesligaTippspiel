@@ -101,6 +101,19 @@ def store_data(N_start, N_end):
     else:
         print("File Bundesliga_data.csv already exists")
 
+def update_data():
+    #N=250 is Spieltag 9 in season 2022/2023
+    import ipdb; ipdb.set_trace()
+    df = load_stored_data()
+    for n in range(250, 256):
+        try:
+            add_df = download_data(n, n+1)
+            df = df.append(add_df, ignore_index=True)
+        except:
+            break
+    df.to_csv("Bundesliga_data.csv")
+
+
 def load_stored_data():
     df = pd.read_csv("Bundesliga_data.csv", index_col=[0], decimal=',', encoding='utf-8')
     return df
@@ -229,6 +242,9 @@ def get_prev_n_spieltag_season(spieltag, season, n):
         pt2 = [(i, prev_season) for i in range(34, 34-(n-spieltag+1), -1)]
         return pt1 + pt2
 
+from joblib import Memory
+memory = Memory("cachedir")
+@memory.cache
 def get_prev_n_results(spieltag, season, team, n):
     df = load_stored_data()
     prev_spieltag_season = get_prev_n_spieltag_season(spieltag, season, n)
@@ -275,9 +291,10 @@ def create_state_generator(n):
 if __name__ == "__main__":
 #    import ipdb; ipdb.set_trace()
 #    store_data(1,250)
-    df = load_stored_data()
+#    df = load_stored_data()
 #    df_list = calc_points_spieltag(9, "2022/2023")
 #    df = get_matches_df_list(9, "2022/2023")[0]
+    update_data()
     import ipdb; ipdb.set_trace()
 #    df = add_guess_spieltag(9, "2022/2023", "New Guess", "TSG", "BRE", "1:2")
 #    df = add_guess_df(df, "1:2")

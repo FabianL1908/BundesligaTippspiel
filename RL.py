@@ -4,12 +4,15 @@ from gym.spaces import Discrete, Box, Dict, Tuple, MultiBinary, MultiDiscrete
 import numpy as np
 import pandas as pd
 import random
+import torch
 import os
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import VecFrameStack
 from stable_baselines3.common.evaluation import evaluate_policy
 
 from get_data import tendency, load_stored_data, add_guess_df, calc_points_df, result_str_to_ints, create_state_generator, get_prev_n_results
+
+torch.set_num_threads(4)
 
 class TippSpielEnv(Env):
     def __init__(self, n):
@@ -67,10 +70,11 @@ env=TippSpielEnv(n_prev)
 
 log_path = os.path.join('Training', 'Logs')
 #model = PPO("MlpPolicy", env, verbose=1, tensorboard_log=log_path)
-#model.learn(total_timesteps=2)
+#model.learn(total_timesteps=20)
 #model.save('PPO')
 model = PPO.load("PPO", env)
-#model.learn(total_timesteps=50000)
+#for i in range(1):
+#    model.learn(total_timesteps=200000)
 #model.save('PPO')
 #eval_res = evaluate_policy(model, env, n_eval_episodes=10)
 
